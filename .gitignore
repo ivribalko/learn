@@ -1,0 +1,10 @@
+.DS_Store
+.venv/
+/courses/
+node_modules/
+dist/
+__pycache__/
+.pytest_cache/
+*.pyc
+*.tsbuildinfo
+var/**

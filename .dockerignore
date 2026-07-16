@@ -1,0 +1,12 @@
+.git
+.github
+.venv
+courses
+frontend/dist
+frontend/node_modules
+node_modules
+var
+__pycache__
+*.pyc
+*.tsbuildinfo
+
