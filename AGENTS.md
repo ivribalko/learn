@@ -72,24 +72,40 @@ Open the site:
 open http://127.0.0.1:5173
 ```
 
-## Production Container
+## Production Containers
 
-Every push to `main` publishes a multi-platform production image to `ghcr.io/ivribalko/learn`. The image serves the built frontend and API together on port `8000` without file watching or hot reload.
+Every push to `main` publishes multi-platform `ghcr.io/ivribalko/learn-site` and `ghcr.io/ivribalko/learn-sync` images. The site image serves the built frontend and API together on port `8000` without file watching or hot reload. The sync image owns the persistent course checkout, commits lesson state, rebases onto `main`, and pushes after completed lesson runs.
 
-GitHub creates the package as private on its first publication. Open the package settings after that first workflow run, change its visibility to **Public**, and rerun the workflow. Public GHCR packages can be pulled anonymously.
+GitHub creates each package as private on its first publication. Open both package settings after the first workflow run, change their visibility to **Public**, and rerun the workflow. Public GHCR packages can be pulled anonymously.
 
-The image does not contain authored courses or lesson toolchains. On the media server, clone the private course repository and mount that checkout at `/app/courses`. At startup, the container creates the ignored course runtime directory with application ownership and installs dependencies from the mounted `requirements.txt`; lesson toolchains remain in course-owned runner images.
+The image does not contain authored courses or lesson toolchains. On the media server, clone the private course repository and mount that checkout at `/app/courses`. At startup, the container creates the course runtime directories with application ownership and installs dependencies from the mounted `requirements.txt`; lesson toolchains remain in course-owned runner images.
 
 Pull the published image:
 
 ```sh
-docker pull ghcr.io/ivribalko/learn:latest
+docker pull ghcr.io/ivribalko/learn-site:latest
 ```
 
-Run it with the course checkout mounted read-write so lesson state can persist under `courses/var/`. Mount the host Docker socket and add its group so the app can build and start sibling runner containers:
+Run it with the course checkout mounted read-write so lesson state can persist under each `courses/<course-package>/var/` directory. Mount the host Docker socket and add its group so the app can build and start sibling runner containers:
 
 ```sh
-docker run --detach --name learn --restart unless-stopped --publish 8000:8000 --env OPENAI_API_KEY="<your-openai-api-key>" --group-add "$(stat --format='%g' /var/run/docker.sock)" --volume /var/run/docker.sock:/var/run/docker.sock --volume "<course-checkout>:/app/courses" ghcr.io/ivribalko/learn:latest
+docker run --detach --name learn-site --restart unless-stopped --publish 8000:8000 --env OPENAI_API_KEY="<your-openai-api-key>" --group-add "$(stat --format='%g' /var/run/docker.sock)" --volume /var/run/docker.sock:/var/run/docker.sock --volume "<course-checkout>:/app/courses" ghcr.io/ivribalko/learn-site:latest
+```
+
+### Docker Compose Stack
+
+[`compose.yaml`](compose.yaml) runs the published `learn-sync` image as a persistent Git service and the published `learn-site` image as the website. The services share the `learn_courses` volume. On startup, `learn-sync` clones the private repository or commits pending volume changes, rebases them onto the latest `origin/main`, and pushes any recovered commit. It becomes healthy only after this initial synchronization.
+
+The stack is self-contained and requires no repository checkout or local image build.
+
+Every lesson run queues a unique request through the shared `learn_courses_sync` volume. The `learn-sync` service stages all nonignored checkout changes, creates a lowercase past-tense `updated lesson state` commit when needed, rebases onto the latest `main`, and pushes directly to `main`. Git failures remain queued for retry.
+
+Configure the Compose environment without committing the values:
+
+```dotenv
+COURSES_REPOSITORY=<owner>/<private-course-repository>
+GITHUB_TOKEN=<courses-contents-write-token>
+OPENAI_API_KEY=<openai-api-key>
 ```
 
 Open the production site:

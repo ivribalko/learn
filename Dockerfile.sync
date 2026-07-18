@@ -1,0 +1,9 @@
+FROM alpine/git:v2.54.0
+
+USER root
+
+COPY learn-sync.sh /usr/local/bin/learn-sync
+
+RUN chmod +x /usr/local/bin/learn-sync
+
+ENTRYPOINT ["/usr/local/bin/learn-sync"]

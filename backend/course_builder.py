@@ -70,6 +70,7 @@ def build_course(
         course_id=course_id,
         title=title,
         help_instructions=help_instructions,
+        runtime_dir=presentation_path.parent / "var",
         asset_presentation=asset_presentation,
         chapters=chapters,
         lessons=lessons,

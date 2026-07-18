@@ -37,6 +37,12 @@ def _load_courses(module: ModuleType | None) -> dict[str, CourseDefinition]:
     for course in exported:
         if not isinstance(course, CourseDefinition):
             raise RuntimeError("courses.registry.COURSES contains a value that is not a CourseDefinition.")
+        if not isinstance(course.runtime_dir, Path):
+            raise RuntimeError(f"Course runtime directory is not a path: {course.course_id}")
+        try:
+            course.runtime_dir.resolve().relative_to(COURSES_PACKAGE_DIR.resolve())
+        except ValueError as error:
+            raise RuntimeError(f"Course runtime directory is outside the checkout: {course.course_id}") from error
         if course.course_id in courses:
             raise RuntimeError(f"Duplicate course identifier: {course.course_id}")
         courses[course.course_id] = course

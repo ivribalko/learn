@@ -140,6 +140,7 @@ class CourseDefinition:
     course_id: str
     title: str
     help_instructions: str
+    runtime_dir: Path
     asset_presentation: AssetPresentation
     chapters: tuple[ChapterDefinition, ...]
     lessons: tuple[LessonDefinition, ...]

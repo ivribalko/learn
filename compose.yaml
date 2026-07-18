@@ -1,0 +1,53 @@
+services:
+  learn-sync:
+    image: ghcr.io/ivribalko/learn-sync:latest
+    pull_policy: always
+    container_name: learn-sync
+    restart: unless-stopped
+
+    environment:
+      COURSES_REPOSITORY: "${COURSES_REPOSITORY:?Set COURSES_REPOSITORY}"
+      GITHUB_TOKEN: "${GITHUB_TOKEN:?Set GITHUB_TOKEN}"
+
+    healthcheck:
+      test: ["CMD-SHELL", "test -f /sync/ready"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
+      start_period: 10s
+
+    volumes:
+      - learn_courses:/courses
+      - learn_courses_sync:/sync
+
+  learn-site:
+    image: ghcr.io/ivribalko/learn-site:latest
+    pull_policy: always
+    container_name: learn-site
+    restart: unless-stopped
+
+    depends_on:
+      learn-sync:
+        condition: service_healthy
+
+    ports:
+      - "8000:8000"
+
+    environment:
+      COURSES_SYNC_REQUEST_DIR: /app/course-sync/requests
+      OPENAI_API_KEY: "${OPENAI_API_KEY:?Set OPENAI_API_KEY}"
+
+    group_add:
+      - "0"
+
+    volumes:
+      - /data/docker.sock:/var/run/docker.sock
+      - learn_courses:/app/courses
+      - learn_courses_sync:/app/course-sync
+
+volumes:
+  learn_courses:
+    name: learn_courses
+
+  learn_courses_sync:
+    name: learn_courses_sync

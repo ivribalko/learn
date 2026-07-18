@@ -1,4 +1,4 @@
-name: Publish Production Container
+name: Publish Production Containers
 
 on:
   push:
@@ -14,7 +14,8 @@ concurrency:
   cancel-in-progress: false
 
 env:
-  IMAGE_NAME: ghcr.io/${{ github.repository }}
+  SITE_IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/learn-site
+  SYNC_IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/learn-sync
 
 jobs:
   publish:
@@ -32,24 +33,46 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
-      - name: Generate image metadata
-        id: metadata
+      - name: Generate site image metadata
+        id: site_metadata
         uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
         with:
-          images: ${{ env.IMAGE_NAME }}
+          images: ${{ env.SITE_IMAGE_NAME }}
           tags: |
             type=raw,value=latest
             type=sha
           labels: |
-            org.opencontainers.image.description=Production Learn course runner
+            org.opencontainers.image.description=Production Learn website and course runner
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
-      - name: Build and push production image
+      - name: Build and push site image
         uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
         with:
           context: .
           platforms: linux/amd64,linux/arm64
           push: true
-          tags: ${{ steps.metadata.outputs.tags }}
-          labels: ${{ steps.metadata.outputs.labels }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          tags: ${{ steps.site_metadata.outputs.tags }}
+          labels: ${{ steps.site_metadata.outputs.labels }}
+          cache-from: type=gha,scope=site
+          cache-to: type=gha,mode=max,scope=site
+      - name: Generate sync image metadata
+        id: sync_metadata
+        uses: docker/metadata-action@dc802804100637a589fabce1cb79ff13a1411302 # v6.2.0
+        with:
+          images: ${{ env.SYNC_IMAGE_NAME }}
+          tags: |
+            type=raw,value=latest
+            type=sha
+          labels: |
+            org.opencontainers.image.description=Learn course repository synchronization worker
+            org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+      - name: Build and push sync image
+        uses: docker/build-push-action@53b7df96c91f9c12dcc8a07bcb9ccacbed38856a # v7.3.0
+        with:
+          context: .
+          file: Dockerfile.sync
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.sync_metadata.outputs.tags }}
+          labels: ${{ steps.sync_metadata.outputs.labels }}
+          cache-from: type=gha,scope=sync
+          cache-to: type=gha,mode=max,scope=sync

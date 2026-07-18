@@ -6,13 +6,12 @@ from backend.course_models import CourseDefinition, LessonDefinition
 
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
-COURSES_DIR = PROJECT_ROOT / "courses" / "var"
 
 
 def course_dir(course: CourseDefinition) -> Path:
-    """Returns the ignored runtime root for one course."""
+    """Returns the versioned runtime root for one course."""
 
-    return COURSES_DIR / course.course_id
+    return course.runtime_dir
 
 
 def lessons_dir(course: CourseDefinition) -> Path:

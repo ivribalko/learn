@@ -23,6 +23,7 @@ from backend.course_paths import (
     lessons_dir,
 )
 from backend.course_registry import COURSES, get_course, get_runner, runner_health
+from backend.course_sync import request_course_sync
 from backend.exam_service import answer_exam_question, get_exam_state, reset_exam_answers
 from backend.openai_chat import (
     OpenAIChatSessionManager,
@@ -421,6 +422,7 @@ def run_lesson_file(course_id: str, lesson_id: str) -> RunFileResponse:
     output_path = lesson_output_path(course, lesson)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(result.model_dump_json(indent=2))
+    request_course_sync()
     return result
 
 
