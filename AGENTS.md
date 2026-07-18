@@ -1,14 +1,14 @@
 # Learn
 
-A mobile-friendly, responsive, local-first website engine for hands-on courses with editable, runnable lesson files.
+A mobile-friendly, responsive website engine for hands-on courses with editable, runnable lesson files. The repository checkout provides the development environment; production is deployed from the published containers.
 
-The base repository contains the shared application and supports an optional course repository checked out at `courses/`.
+The base repository contains the shared application. During development, it supports an optional course repository checked out at `courses/`; the production stack synchronizes that repository into a persistent Docker volume.
 
 The website contains a course-aware chat page backed by the OpenAI Responses API. Conversation state stays in backend memory, and every API request sets `store=false`.
 
-The static demo is published at [ivribalko.github.io/learn](https://ivribalko.github.io/learn/).
+The frontend-only static demo is published at [ivribalko.github.io/learn](https://ivribalko.github.io/learn/). It previews the interface and is not the production application.
 
-## Course Checkout
+## Development Course Checkout
 
 Clone a compatible course repository into the ignored `courses/` directory:
 
@@ -18,7 +18,7 @@ git clone <course-repository-url> courses
 
 The checkout must be a Python package with a root `registry.py` that exports `COURSES` as an ordered tuple of `CourseDefinition` values and `RUNNERS` as a runner dictionary. Optional Python dependencies belong in `courses/requirements.txt`; install them into the parent backend environment for course imports and asset materialization, while course-owned runner images install the dependencies needed during lesson execution.
 
-## Setup
+## Development Setup
 
 Create the isolated Python environment inside this project:
 
@@ -52,7 +52,7 @@ npm install --prefix frontend
 
 Install and start Docker. Course-owned runner images build automatically when a lesson first uses them.
 
-## Run
+## Development Run
 
 Start the backend:
 
@@ -72,13 +72,15 @@ Open the site:
 open http://127.0.0.1:5173
 ```
 
-## Production Containers
+## Production Deployment
 
-Every push to `main` publishes multi-platform `ghcr.io/ivribalko/learn-site` and `ghcr.io/ivribalko/learn-sync` images. The site image serves the built frontend and API together on port `8000` without file watching or hot reload. The sync image owns the persistent course checkout, commits lesson state, rebases onto `main`, and pushes after completed lesson runs.
+Every push to `main` publishes multi-platform `ghcr.io/ivribalko/learn-site` and `ghcr.io/ivribalko/learn-sync` images. Production hosts pull these images instead of running the development servers. The site image serves the built frontend and API together on port `8000` without file watching or hot reload. The sync image owns the persistent course checkout, commits lesson state, rebases onto `main`, and pushes after completed lesson runs.
 
 GitHub creates each package as private on its first publication. Open both package settings after the first workflow run, change their visibility to **Public**, and rerun the workflow. Public GHCR packages can be pulled anonymously.
 
-The image does not contain authored courses or lesson toolchains. On the media server, clone the private course repository and mount that checkout at `/app/courses`. At startup, the container creates the course runtime directories with application ownership and installs dependencies from the mounted `requirements.txt`; lesson toolchains remain in course-owned runner images.
+The site image does not contain authored courses or lesson toolchains. A standalone deployment must provide a course checkout at `/app/courses`. At startup, the container creates the course runtime directories with application ownership and installs dependencies from the mounted `requirements.txt`; lesson toolchains remain in course-owned runner images.
+
+### Standalone Site Container
 
 Pull the published image:
 
@@ -94,7 +96,7 @@ docker run --detach --name learn-site --restart unless-stopped --publish 8000:80
 
 ### Docker Compose Stack
 
-[`compose.yaml`](compose.yaml) runs the published `learn-sync` image as a persistent Git service and the published `learn-site` image as the website. The services share the `learn_courses` volume. On startup, `learn-sync` clones the private repository or commits pending volume changes, rebases them onto the latest `origin/main`, and pushes any recovered commit. It becomes healthy only after this initial synchronization.
+[`compose.yaml`](compose.yaml) is the complete production stack. It runs the published `learn-sync` image as a persistent Git service and the published `learn-site` image as the website. The services share the `learn_courses` volume. On startup, `learn-sync` clones the private repository or commits pending volume changes, rebases them onto the latest `origin/main`, and pushes any recovered commit. It becomes healthy only after this initial synchronization.
 
 The stack is self-contained and requires no repository checkout or local image build.
 
@@ -118,7 +120,7 @@ Service boundaries, runtime state, request flows, and the Docker runner lifecycl
 
 ## Repository Instructions
 
-- This app is a local-first course runner intended for trusted environments; do not add remote-user security features.
+- This app is a deployed course runner intended for trusted environments; repository-local execution is for development only, and remote-user security features are out of scope.
 - Do not add automated tests.
 - For ordinary frontend source or CSS edits, rely on Vite hot reload without building or restarting; build or restart only when explicitly requested, for delivery verification, or when startup/build-time behavior changes.
 - Run the backend with file watching using `.venv/bin/python -m uvicorn backend.app:app --host 127.0.0.1 --port 8000 --reload`; after backend logic changes, rely on reload instead of manually restarting it.

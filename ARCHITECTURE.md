@@ -11,6 +11,13 @@
 - `compose.yaml` runs the published site and sync images without a local build context.
 - `var/` contains ignored machine-local configuration for the shared application.
 
+## Deployment Model
+
+- Repository-local FastAPI and Vite processes form the development environment and are not a production mode.
+- GitHub Pages hosts a frontend-only interactive demo with simulated course services.
+- Production runs the published `learn-site` and `learn-sync` containers through `compose.yaml`.
+- `learn-site` serves the frontend and API, while `learn-sync` owns Git synchronization for the persistent course volume.
+
 ## Course Contract
 
 - `backend/course_registry.py` loads `COURSES` and `RUNNERS` from `courses.registry`; invalid values, missing runner methods, unresolved lesson runner IDs, and duplicate course IDs stop backend startup with a clear error.
@@ -56,10 +63,10 @@
 
 - `.github/workflows/pages.yml` builds the frontend with the repository-specific `/learn/` asset and router base path.
 - The preview build replaces API calls used by one authored Python demo lesson with in-memory page-session data, editing, reference content, simulated output, and deterministic streamed tutor responses.
-- The Pages artifact contains only frontend files; course data, the FastAPI service, generated state, and Help chat remain local.
+- The Pages artifact contains only frontend files; course data, the FastAPI service, generated state, and live Help chat are available only in the full application deployment.
 - A copy of the entry document is published as `404.html` so GitHub Pages can return the React application for client-side routes.
 
-## Local Services
+## Development Services
 
 - Vite serves the frontend on `5173` and proxies `/api` to FastAPI on `127.0.0.1:8000`.
 - Both development servers start from the repository root with `npm run backend` and `npm run dev`.
@@ -67,7 +74,7 @@
 - Course help reads the API key from `OPENAI_API_KEY`.
 - Docker must be installed and running before a lesson can execute; ordinary backend and frontend startup does not build runner images.
 
-## Production Containers
+## Production Deployment
 
 - `Dockerfile.site` builds `learn-site` from the real Vite frontend and a Python runtime containing FastAPI, the project virtual environment, and only the Docker client needed for lesson dispatch.
 - `Dockerfile.sync` builds `learn-sync` from the pinned Alpine Git image and the course synchronization worker.
