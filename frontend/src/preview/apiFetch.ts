@@ -11,16 +11,17 @@ import type { Course, CourseProgress, CourseSummary } from "../courseTypes";
 
 const courseId = "python-demo";
 const lessonId = "1.1";
-const fileStorageKey = "learn-preview-python-file-v1";
-const fileModifiedStorageKey = "learn-preview-python-file-modified-v1";
-const outputStorageKey = "learn-preview-python-output-v1";
-const progressStorageKey = "learn-preview-progress-v1";
 const tutorResponse = "This lesson introduces a variable, an f-string, and `print()`. Change the value assigned to `name`, then select **Run** to produce a personalized greeting.";
 let chatTurn = 0;
 
 const template = `name = "learner"
 print(f"Hello, {name}!")
 `;
+
+let previewFileContent = template;
+let previewFileModifiedAt: number | null = null;
+let previewOutput: RunResult | null = null;
+let previewProgress: CourseProgress = { completedLessonIds: [] };
 
 const assetContent = `Python demo reference
 
@@ -172,16 +173,15 @@ async function handleChatRequest(
 
 function readLessonFile(): LessonFileResponse {
   return {
-    content: window.localStorage.getItem(fileStorageKey) ?? template,
+    content: previewFileContent,
     exists: true
   };
 }
 
 function readLessonFileState(): LessonFileState {
-  const modifiedAt = Number(window.localStorage.getItem(fileModifiedStorageKey));
   return {
     exists: true,
-    modifiedAt: Number.isFinite(modifiedAt) && modifiedAt > 0 ? modifiedAt : null
+    modifiedAt: previewFileModifiedAt
   };
 }
 
@@ -191,15 +191,15 @@ function readLessonOutput(): LessonOutputResponse {
 }
 
 function saveLessonFile(content: string): LessonFileResponse {
-  window.localStorage.setItem(fileStorageKey, content);
-  window.localStorage.setItem(fileModifiedStorageKey, String(Date.now()));
+  previewFileContent = content;
+  previewFileModifiedAt = Date.now();
   return readLessonFile();
 }
 
 function resetLessonFile(): LessonFileResponse {
-  window.localStorage.removeItem(fileStorageKey);
-  window.localStorage.setItem(fileModifiedStorageKey, String(Date.now()));
-  window.localStorage.removeItem(outputStorageKey);
+  previewFileContent = template;
+  previewFileModifiedAt = Date.now();
+  previewOutput = null;
   writeProgress({ completedLessonIds: [] });
   return readLessonFile();
 }
@@ -220,27 +220,20 @@ function runLessonFile(): RunResult {
       { label: "Print the formatted greeting.", passed: hasGreeting }
     ]
   };
-  window.localStorage.setItem(outputStorageKey, JSON.stringify(result));
+  previewOutput = result;
   if (success) writeProgress({ completedLessonIds: [lessonId] });
   return result;
 }
 
 function readProgress(): CourseProgress {
-  const stored = window.localStorage.getItem(progressStorageKey);
-  if (!stored) return { completedLessonIds: [] };
-  try {
-    const value = JSON.parse(stored) as CourseProgress;
-    return {
-      completedLessonIds: value.completedLessonIds?.includes(lessonId) ? [lessonId] : []
-    };
-  } catch {
-    return { completedLessonIds: [] };
-  }
+  return { completedLessonIds: [...previewProgress.completedLessonIds] };
 }
 
 function writeProgress(progress: CourseProgress): CourseProgress {
-  window.localStorage.setItem(progressStorageKey, JSON.stringify(progress));
-  return progress;
+  previewProgress = {
+    completedLessonIds: progress.completedLessonIds.includes(lessonId) ? [lessonId] : []
+  };
+  return readProgress();
 }
 
 function readAssetState(): AssetState {
@@ -258,14 +251,7 @@ function readAssetFile(): AssetFileResponse {
 }
 
 function readStoredOutput(): RunResult | null {
-  const stored = window.localStorage.getItem(outputStorageKey);
-  if (!stored) return null;
-  try {
-    return JSON.parse(stored) as RunResult;
-  } catch {
-    window.localStorage.removeItem(outputStorageKey);
-    return null;
-  }
+  return previewOutput;
 }
 
 function streamChatResponse(): Response {

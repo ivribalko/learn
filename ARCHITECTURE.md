@@ -3,7 +3,7 @@
 ## Folder Layout
 
 - `frontend/` contains the shared Vite, React, and TypeScript application.
-- `frontend/src/preview/` contains the static demo course, browser persistence, simulated runner, and demo chat transport.
+- `frontend/src/preview/` contains the static demo course, page-session state, simulated runner, and demo chat transport.
 - `backend/` contains the FastAPI service, normalized course models, course loader, persistence services, and reusable course builder.
 - `courses/` is the optional ignored course checkout and owns authored content, runner dispatch, and lesson-runtime images.
 - `courses/<course-package>/var/` contains that course's versioned progress, editable lessons, generated assets, run output, and exam answers.
@@ -55,7 +55,7 @@
 ## GitHub Pages Preview
 
 - `.github/workflows/pages.yml` builds the frontend with the repository-specific `/learn/` asset and router base path.
-- The preview build replaces API calls used by one authored Python demo lesson with browser-local data, editing, reference content, simulated output, and deterministic streamed tutor responses.
+- The preview build replaces API calls used by one authored Python demo lesson with in-memory page-session data, editing, reference content, simulated output, and deterministic streamed tutor responses.
 - The Pages artifact contains only frontend files; course data, the FastAPI service, generated state, and Help chat remain local.
 - A copy of the entry document is published as `404.html` so GitHub Pages can return the React application for client-side routes.
 
