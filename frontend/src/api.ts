@@ -110,10 +110,6 @@ export async function fetchLessonOutput(courseId: string, lessonId: string): Pro
   return parseJson<LessonOutputResponse>(await fetch(lessonUrl(courseId, lessonId, "output")));
 }
 
-export async function openInVSCode(courseId: string, lessonId: string): Promise<LessonFileResponse> {
-  return parseJson<LessonFileResponse>(await fetch(lessonUrl(courseId, lessonId, "open"), { method: "POST" }));
-}
-
 export async function saveLessonFile(courseId: string, lessonId: string, content: string): Promise<LessonFileResponse> {
   return parseJson<LessonFileResponse>(
     await fetch(lessonUrl(courseId, lessonId, "file"), {
@@ -142,10 +138,6 @@ export async function fetchAssetFile(courseId: string, lessonId: string): Promis
 
 export async function resetAsset(courseId: string, lessonId: string): Promise<AssetState> {
   return parseJson<AssetState>(await fetch(lessonUrl(courseId, lessonId, "asset/reset"), { method: "POST" }));
-}
-
-export async function openAssetInVSCode(courseId: string, lessonId: string): Promise<AssetFileResponse> {
-  return parseJson<AssetFileResponse>(await fetch(lessonUrl(courseId, lessonId, "asset/open"), { method: "POST" }));
 }
 
 export async function fetchExam(courseId: string, lessonId: string): Promise<ExamState> {

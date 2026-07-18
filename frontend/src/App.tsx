@@ -27,8 +27,6 @@ import {
   fetchLessonFileState,
   fetchLessonOutput,
   fetchCourseProgress,
-  openAssetInVSCode,
-  openInVSCode,
   resetAsset,
   resetLessonFile,
   runLessonFile,
@@ -333,30 +331,6 @@ function LessonPage({
     return () => window.clearTimeout(timer);
   }, [message]);
 
-  async function handleOpenExternally() {
-    setStatus("loading");
-    setMessage("");
-    try {
-      if (editorPanelView === "asset") {
-        const response = await openAssetInVSCode(course.id, lesson.id);
-        setAssetFile(response);
-        void loadAssetState(course.id, lesson.id, setAssetInfo, setMessage);
-        setStatus("idle");
-        return;
-      }
-
-      const response = await openInVSCode(course.id, lesson.id);
-      setFileContent(response.content);
-      setHasLessonFile(response.exists);
-      const nextFileState = await fetchLessonFileState(course.id, lesson.id);
-      fileStateRef.current = nextFileState;
-      setStatus("idle");
-    } catch (error) {
-      setStatus("error");
-      setMessage(error instanceof Error ? error.message : "Unable to open externally.");
-    }
-  }
-
   async function handleCodeChange(content: string) {
     const saveVersion = saveVersionRef.current + 1;
     const scrollX = window.scrollX;
@@ -464,17 +438,12 @@ function LessonPage({
   }
 
   const editorActions = (
-    <>
-      <span className="desktop-open-action">
-        <button className="control-button pill-button" onClick={handleOpenExternally} type="button"><ExternalLink size={18} />Open</button>
-      </span>
-      <WorkspaceWidthButton
-        active={workspacePanelView === "editor"}
-        onClick={() => setWorkspacePanelView((view) => view === "editor" ? "split" : "editor")}
-      >
-        {workspacePanelView === "editor" ? <ChevronsLeft size={16} /> : <ChevronsRight size={16} />}
-      </WorkspaceWidthButton>
-    </>
+    <WorkspaceWidthButton
+      active={workspacePanelView === "editor"}
+      onClick={() => setWorkspacePanelView((view) => view === "editor" ? "split" : "editor")}
+    >
+      {workspacePanelView === "editor" ? <ChevronsLeft size={16} /> : <ChevronsRight size={16} />}
+    </WorkspaceWidthButton>
   );
 
   return (
