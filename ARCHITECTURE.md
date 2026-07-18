@@ -69,7 +69,7 @@
 
 ## Production Containers
 
-- `Dockerfile` builds `learn-site` from the real Vite frontend and a Python runtime containing FastAPI, the project virtual environment, and only the Docker client needed for lesson dispatch.
+- `Dockerfile.site` builds `learn-site` from the real Vite frontend and a Python runtime containing FastAPI, the project virtual environment, and only the Docker client needed for lesson dispatch.
 - `Dockerfile.sync` builds `learn-sync` from the pinned Alpine Git image and the course synchronization worker.
 - `backend/production.py` serves static frontend assets and client-side routes from the same process and origin as `/api`.
 - The production command runs one uvicorn worker without file watching so the in-memory Help chat session remains coherent.
