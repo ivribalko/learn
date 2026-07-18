@@ -74,12 +74,15 @@ class OpenAIChatSession:
         lesson: LessonDefinition,
         message: str,
         quote: str | None,
+        branch_turn_index: int | None = None,
     ) -> Iterator[str]:
         """Yields NDJSON text deltas while retaining complete response items in memory."""
 
         with self._turn_lock:
             if self._closed:
                 raise RuntimeError("The OpenAI chat session is closed.")
+            if branch_turn_index is not None:
+                self._branch_before_turn(branch_turn_index)
 
             user_input = {
                 "role": "user",
@@ -158,6 +161,20 @@ class OpenAIChatSession:
             return False
         stream.close()
         return True
+
+    def _branch_before_turn(self, turn_index: int) -> None:
+        """Discards one user turn and everything after it from retained history."""
+
+        if turn_index < 0:
+            raise ValueError("Chat turn index must not be negative.")
+        user_turn_positions = [
+            index
+            for index, item in enumerate(self._history)
+            if isinstance(item, dict) and item.get("role") == "user"
+        ]
+        if turn_index >= len(user_turn_positions):
+            raise ValueError("The edited chat turn is not present in the active session.")
+        self._history = self._history[:user_turn_positions[turn_index]]
 
     def close(self) -> None:
         """Cancels active work and discards all in-memory conversation state."""

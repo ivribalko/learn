@@ -56,6 +56,7 @@
 - Every turn includes the active lesson's normalized teaching content and current editable file so the API remains grounded without local filesystem tools.
 - Each request uses `store=false`; the backend replays complete response output items from memory so reasoning context is retained without persisting a conversation at OpenAI.
 - Changing courses replaces the in-memory session on the next help turn; `New chat` and page close discard it explicitly.
+- Editing a user message truncates retained backend history before that turn, removes later displayed messages, and resubmits the edited turn from its original lesson context.
 - The backend streams output-text deltas to the browser and closes the active API stream when the user stops a response.
 - Selected lesson or editor text is attached as quoted context to the next message.
 

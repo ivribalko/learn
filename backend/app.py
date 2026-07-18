@@ -113,6 +113,7 @@ class OpenAIChatTurnRequest(BaseModel):
     lessonId: str
     message: str
     quote: str | None = None
+    branchTurnIndex: int | None = None
 
 
 class ExamAnswerRequest(BaseModel):
@@ -199,11 +200,11 @@ def stream_openai_chat_turn(course_id: str, request: OpenAIChatTurnRequest) -> S
 
     def events() -> Iterator[str]:
         try:
-            yield from session.stream_turn(lesson, request.message, request.quote)
+            yield from session.stream_turn(lesson, request.message, request.quote, request.branchTurnIndex)
         except GeneratorExit:
             OPENAI_CHAT_SESSIONS.close(session)
             raise
-        except RuntimeError as error:
+        except (RuntimeError, ValueError) as error:
             OPENAI_CHAT_SESSIONS.close(session)
             yield chat_stream_event("error", message=str(error))
 

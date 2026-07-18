@@ -18,7 +18,14 @@ const CHAT_OPEN_CLASS = "openai-chat-open";
 const NARROW_CHAT_MEDIA = "(max-width: 640px)";
 const TEST_CHAT_QUERY = "testChat";
 
-type DisplayChatMessage = OpenAIChatMessage & { createdAt: number };
+type DisplayChatMessage = OpenAIChatMessage & { createdAt: number; lessonId?: string };
+
+type SendMessageOptions = {
+  baseMessages?: DisplayChatMessage[];
+  branchTurnIndex?: number;
+  lessonId?: string;
+  quote?: string;
+};
 
 function getChatScrollElement(): HTMLElement {
   return document.scrollingElement instanceof HTMLElement ? document.scrollingElement : document.documentElement;
@@ -373,10 +380,20 @@ export default function OpenAIHelpChat({
     if (editingMessageIndex === null || !content) {
       return;
     }
-    setMessages((currentMessages) => currentMessages.map((message, index) => (
-      index === editingMessageIndex ? { ...message, content } : message
-    )));
+    const editedMessage = messages[editingMessageIndex];
+    if (!editedMessage || editedMessage.role !== "user") {
+      handleCancelEdit();
+      return;
+    }
+    const baseMessages = messages.slice(0, editingMessageIndex);
+    const branchTurnIndex = baseMessages.filter((message) => message.role === "user").length;
     handleCancelEdit();
+    void sendMessage(content, false, {
+      baseMessages,
+      branchTurnIndex,
+      lessonId: editedMessage.lessonId ?? lessonId,
+      quote: editedMessage.quote
+    });
   }
 
   async function handleCopyMessage(index: number, content: string) {
@@ -401,18 +418,24 @@ export default function OpenAIHelpChat({
     setExpandedMessageIndex((currentIndex) => currentIndex === index ? null : index);
   }
 
-  async function sendMessage(messageText: string, clearDraft: boolean) {
+  async function sendMessage(messageText: string, clearDraft: boolean, options: SendMessageOptions = {}) {
     const content = messageText.trim();
     if (!content || isSending) {
       return;
     }
 
+    const baseMessages = options.baseMessages ?? messages;
+    const messageQuote = options.quote ?? pendingQuote;
+    const messageLessonId = options.lessonId ?? lessonId;
     const userMessage: OpenAIChatMessage = {
       role: "user",
       content,
-      ...(pendingQuote ? { quote: pendingQuote } : {})
+      ...(messageQuote ? { quote: messageQuote } : {})
     };
-    const conversation: DisplayChatMessage[] = [...messages, { ...userMessage, createdAt: Date.now() }];
+    const conversation: DisplayChatMessage[] = [
+      ...baseMessages,
+      { ...userMessage, createdAt: Date.now(), lessonId: messageLessonId }
+    ];
     setMessages(conversation);
     if (clearDraft) {
       setDraft("");
@@ -423,7 +446,7 @@ export default function OpenAIHelpChat({
     setIsSending(true);
     sessionActiveRef.current = true;
     try {
-      await streamOpenAIChatTurn(courseId, lessonId, content, userMessage.quote, (delta) => {
+      await streamOpenAIChatTurn(courseId, messageLessonId, content, userMessage.quote, (delta) => {
         setIsReceivingResponse(true);
         setMessages((currentMessages) => {
           const updatedMessages = [...currentMessages];
@@ -435,11 +458,11 @@ export default function OpenAIHelpChat({
           }
           return updatedMessages;
         });
-      });
+      }, options.branchTurnIndex);
     } catch (requestError) {
       sessionActiveRef.current = false;
-      setMessages(messages);
-      if (clearDraft) {
+      setMessages(baseMessages);
+      if (clearDraft || options.branchTurnIndex !== undefined) {
         setDraft(content);
       }
       setPendingQuote(userMessage.quote ?? "");

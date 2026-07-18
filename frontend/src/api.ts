@@ -176,10 +176,11 @@ export async function streamOpenAIChatTurn(
   lessonId: string,
   message: string,
   quote: string | undefined,
-  onDelta: (text: string) => void
+  onDelta: (text: string) => void,
+  branchTurnIndex?: number
 ): Promise<void> {
   const response = await fetch(`/api/courses/${courseId}/openai-chat/turn`, {
-    body: JSON.stringify({ lessonId, message, quote }),
+    body: JSON.stringify({ lessonId, message, quote, branchTurnIndex }),
     headers: { "Content-Type": "application/json" },
     method: "POST"
   });
