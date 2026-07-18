@@ -22,14 +22,13 @@ from backend.course_paths import (
     lesson_path,
     lessons_dir,
 )
-from backend.course_registry import COURSES, get_course
+from backend.course_registry import COURSES, get_course, get_runner, runner_health
 from backend.exam_service import answer_exam_question, get_exam_state, reset_exam_answers
 from backend.openai_chat import (
     OpenAIChatSessionManager,
     OpenAIChatSettingsResponse,
     chat_stream_event,
 )
-from backend.runners import get_runner, runner_health
 
 ASSET_PREVIEW_LINE_LIMIT = 120
 

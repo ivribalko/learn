@@ -49,9 +49,3 @@ def asset_metadata_path(course: CourseDefinition, lesson: LessonDefinition) -> P
     """Returns the generated asset metadata path for one lesson."""
 
     return asset_path(course, lesson).with_suffix(".metadata.json")
-
-
-def build_dir(course: CourseDefinition) -> Path:
-    """Returns the disposable compiled-output directory for one course."""
-
-    return course_dir(course) / "build"

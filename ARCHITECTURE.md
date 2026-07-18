@@ -4,17 +4,17 @@
 
 - `frontend/` contains the shared Vite, React, and TypeScript application.
 - `frontend/src/preview/` contains the static demo course, browser persistence, simulated runner, and demo chat transport.
-- `backend/` contains the FastAPI service, normalized course models, course loader, runner plugins, persistence services, and reusable course builder.
-- `courses/` is the optional ignored course checkout.
-- `courses/var/<course-id>/` contains ignored editable lessons, generated assets, run output, exam answers, and disposable builds.
+- `backend/` contains the FastAPI service, normalized course models, course loader, persistence services, and reusable course builder.
+- `courses/` is the optional ignored course checkout and owns authored content, runner dispatch, and lesson-runtime images.
+- `courses/var/<course-id>/` contains ignored editable lessons, generated assets, run output, and exam answers.
 - `var/` contains ignored machine-local configuration for the shared application.
 
 ## Course Contract
 
-- `backend/course_registry.py` loads the ordered `CourseDefinition` values from `courses.registry.COURSES`; invalid values and duplicate course IDs stop backend startup with a clear error.
+- `backend/course_registry.py` loads `COURSES` and `RUNNERS` from `courses.registry`; invalid values, missing runner methods, unresolved lesson runner IDs, and duplicate course IDs stop backend startup with a clear error.
 - A missing checkout produces an empty catalog, while a missing dependency inside an installed checkout is treated as a configuration error.
 - `backend/course_builder.py` adapts authored presentation data and executable definitions into the normalized shared model.
-- Course-specific Python dependencies are declared by the checkout rather than the base application.
+- Checkout dependencies, runner implementations, image definitions, and execution commands belong to the checkout rather than the base application.
 
 ## Browser Flow
 
@@ -28,9 +28,12 @@
 ## Lesson and Asset Flow
 
 - File, output, exam, run, reset, open, and asset operations are scoped below `/api/courses/{courseId}/lessons/{lessonId}/`.
-- Run creates missing source and asset files, invokes the selected runner, evaluates normalized output checks, and persists the result.
-- Restart removes source, output, runner artifacts, exam answers, and completion state.
-- Shared Python and C++20 runners execute through the project virtual environment and detected host compiler respectively.
+- Run creates missing source and asset files, invokes the checkout-owned runner, evaluates normalized output checks, and persists the result.
+- Restart removes source, output, exam answers, and completion state.
+- Lessons execute in Docker images defined by the course checkout; runner tags derive from checkout-owned image and dependency inputs, and each image builds lazily on its first run.
+- Runner containers have no network and mount only course runtime state when the backend runs directly on the host.
+- Runner timeouts force-remove the named container, and intermediate execution artifacts remain in disposable container storage.
+- Runner health reports Docker daemon availability, derived image tags, and whether those images have been built.
 
 ## Help Chat
 
@@ -46,7 +49,7 @@
 
 - `.github/workflows/pages.yml` builds the frontend with the repository-specific `/learn/` asset and router base path.
 - The preview build replaces API calls used by one authored Python demo lesson with browser-local data, editing, reference content, simulated output, and deterministic streamed tutor responses.
-- The Pages artifact contains only frontend files; course data, the FastAPI service, runners, generated state, and Help chat remain local.
+- The Pages artifact contains only frontend files; course data, the FastAPI service, generated state, and Help chat remain local.
 - A copy of the entry document is published as `404.html` so GitHub Pages can return the React application for client-side routes.
 
 ## Local Services
@@ -55,13 +58,14 @@
 - Both development servers start from the repository root with `npm run backend` and `npm run dev`.
 - FastAPI runs with file watching through the backend script.
 - Course help reads the API key from `OPENAI_API_KEY`.
-- Host tools remain available to runner plugins, so the base does not require a containerized runtime.
+- Docker must be installed and running before a lesson can execute; ordinary backend and frontend startup does not build runner images.
 
 ## Production Container
 
-- `Dockerfile` builds the real Vite frontend and copies it into a Python runtime containing FastAPI, the project virtual environment, and Clang.
+- `Dockerfile` builds the real Vite frontend and copies it into a Python runtime containing FastAPI, the project virtual environment, and only the Docker client needed for lesson dispatch.
 - `backend/production.py` serves static frontend assets and client-side routes from the same process and origin as `/api`.
 - The production command runs one uvicorn worker without file watching so the in-memory Help chat session remains coherent.
 - The ignored course checkout is excluded from the image and mounted read-write at `/app/courses`; lesson files and generated state remain in that volume.
 - The Docker entrypoint installs dependencies declared by the mounted course checkout before importing its registry and starting the service.
+- The production container receives the host Docker socket and its group access; runner containers inherit `/app/courses` from the app container and run as siblings on the host daemon rather than through a nested daemon.
 - `.github/workflows/container.yml` publishes latest and commit tags for Linux AMD64 and ARM64 to GitHub Container Registry on every push to `main`.

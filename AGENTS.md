@@ -16,7 +16,7 @@ Clone a compatible course repository into the ignored `courses/` directory:
 git clone <course-repository-url> courses
 ```
 
-The checkout must be a Python package with a root `registry.py` that exports `COURSES` as an ordered tuple of `CourseDefinition` values. Optional Python dependencies belong in `courses/requirements.txt`.
+The checkout must be a Python package with a root `registry.py` that exports `COURSES` as an ordered tuple of `CourseDefinition` values and `RUNNERS` as a runner dictionary. Optional Python dependencies belong in `courses/requirements.txt`; install them into the parent backend environment for course imports and asset materialization, while course-owned runner images install the dependencies needed during lesson execution.
 
 ## Setup
 
@@ -50,6 +50,8 @@ Install frontend dependencies:
 npm install --prefix frontend
 ```
 
+Install and start Docker. Course-owned runner images build automatically when a lesson first uses them.
+
 ## Run
 
 Start the backend:
@@ -76,7 +78,7 @@ Every push to `main` publishes a multi-platform production image to `ghcr.io/ivr
 
 GitHub creates the package as private on its first publication. Open the package settings after that first workflow run, change its visibility to **Public**, and rerun the workflow. Public GHCR packages can be pulled anonymously.
 
-The image does not contain authored courses. On the media server, clone the private course repository and mount that checkout at `/app/courses`. Course dependencies from the mounted `requirements.txt` are installed when the container starts.
+The image does not contain authored courses or lesson toolchains. On the media server, clone the private course repository and mount that checkout at `/app/courses`. Course dependencies from the mounted `requirements.txt` are installed when the app container starts, while lesson toolchains remain in course-owned runner images.
 
 Pull the published image:
 
@@ -84,10 +86,10 @@ Pull the published image:
 docker pull ghcr.io/ivribalko/learn:latest
 ```
 
-Run it with the course checkout mounted read-write so lesson state can persist under `courses/var/`:
+Run it with the course checkout mounted read-write so lesson state can persist under `courses/var/`. Mount the host Docker socket and add its group so the app can build and start sibling runner containers:
 
 ```sh
-docker run --detach --name learn --restart unless-stopped --publish 8000:8000 --env OPENAI_API_KEY="<your-openai-api-key>" --volume "<course-checkout>:/app/courses" ghcr.io/ivribalko/learn:latest
+docker run --detach --name learn --restart unless-stopped --publish 8000:8000 --env OPENAI_API_KEY="<your-openai-api-key>" --group-add "$(stat --format='%g' /var/run/docker.sock)" --volume /var/run/docker.sock:/var/run/docker.sock --volume "<course-checkout>:/app/courses" ghcr.io/ivribalko/learn:latest
 ```
 
 Open the production site:
@@ -96,7 +98,7 @@ Open the production site:
 open http://<media-server>:8000
 ```
 
-Service boundaries, runtime state, request flows, and the rationale for using host tools are documented in [`ARCHITECTURE.md`](ARCHITECTURE.md).
+Service boundaries, runtime state, request flows, and the Docker runner lifecycle are documented in [`ARCHITECTURE.md`](ARCHITECTURE.md).
 
 ## Repository Instructions
 

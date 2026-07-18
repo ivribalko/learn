@@ -9,16 +9,18 @@ COPY frontend/ ./
 RUN npm run build
 
 
+FROM docker:cli AS docker-cli
+
+
 FROM python:3.14-slim-bookworm AS runtime
 
 ENV PATH="/app/.venv/bin:$PATH" \
     PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1
 
-RUN apt-get update \
-    && apt-get install --no-install-recommends --yes clang \
-    && rm -rf /var/lib/apt/lists/* \
-    && useradd --create-home --uid 1000 learn
+COPY --from=docker-cli /usr/local/bin/docker /usr/local/bin/docker
+
+RUN useradd --create-home --uid 1000 learn
 
 WORKDIR /app
 
