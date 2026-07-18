@@ -1,4 +1,5 @@
 import {
+  BookOpen,
   CheckCircle2,
   ChevronDown,
   ChevronLeft,
@@ -6,6 +7,8 @@ import {
   ChevronUp,
   ChevronsLeft,
   ChevronsRight,
+  Code2,
+  Database,
   ExternalLink,
   LayoutGrid,
   LoaderCircle,
@@ -231,6 +234,7 @@ function LessonPage({
   const fileStateRef = useRef<LessonFileState | null>(null);
   const codePanelRef = useRef<HTMLElement | null>(null);
   const editorRef = useRef<HTMLTextAreaElement | null>(null);
+  const assetLoadRequestRef = useRef(0);
   const lessonLoadRequestRef = useRef(0);
   const outputLoadRequestRef = useRef(0);
   const pollingRef = useRef(false);
@@ -281,6 +285,7 @@ function LessonPage({
   }, [course.id, lesson]);
 
   useEffect(() => {
+    assetLoadRequestRef.current += 1;
     setExamAnsweredCount(0);
     setMessage("");
     setAssetFile(null);
@@ -421,6 +426,8 @@ function LessonPage({
         resetLessonFile(course.id, lesson.id)
       ]);
       setAssetInfo(assetResponse);
+      setAssetFile(null);
+      setEditorPanelView("code");
       setFileContent(lessonFileResponse.content);
       setHasLessonFile(lessonFileResponse.exists);
       setHasSavedOutput(false);
@@ -437,13 +444,62 @@ function LessonPage({
     }
   }
 
+  async function handleToggleEditorPanel() {
+    if (editorPanelView === "asset") {
+      setEditorPanelView("code");
+      return;
+    }
+
+    setEditorPanelView("asset");
+    if (assetFile) {
+      return;
+    }
+
+    const requestId = assetLoadRequestRef.current + 1;
+    assetLoadRequestRef.current = requestId;
+    setStatus("loading");
+    setMessage("");
+    try {
+      const response = await fetchAssetFile(course.id, lesson.id);
+      if (assetLoadRequestRef.current !== requestId) {
+        return;
+      }
+      setAssetFile(response);
+      setAssetInfo({ exists: true });
+      setStatus("idle");
+    } catch (error) {
+      if (assetLoadRequestRef.current !== requestId) {
+        return;
+      }
+      setStatus("error");
+      setMessage(error instanceof Error ? error.message : `Unable to load ${course.asset.label.toLowerCase()}.`);
+    }
+  }
+
   const editorActions = (
-    <WorkspaceWidthButton
-      active={workspacePanelView === "editor"}
-      onClick={() => setWorkspacePanelView((view) => view === "editor" ? "split" : "editor")}
-    >
-      {workspacePanelView === "editor" ? <ChevronsLeft size={16} /> : <ChevronsRight size={16} />}
-    </WorkspaceWidthButton>
+    <>
+      <button
+        className="control-button pill-button workspace-action-button"
+        disabled={status === "running" || (status === "loading" && editorPanelView === "asset")}
+        onClick={() => void handleToggleEditorPanel()}
+        type="button"
+      >
+        {editorPanelView === "asset" ? (
+          <Code2 size={16} />
+        ) : course.asset.icon === "database" ? (
+          <Database size={16} />
+        ) : (
+          <BookOpen size={16} />
+        )}
+        {editorPanelView === "asset" ? "Code" : course.asset.shortLabel}
+      </button>
+      <WorkspaceWidthButton
+        active={workspacePanelView === "editor"}
+        onClick={() => setWorkspacePanelView((view) => view === "editor" ? "split" : "editor")}
+      >
+        {workspacePanelView === "editor" ? <ChevronsLeft size={16} /> : <ChevronsRight size={16} />}
+      </WorkspaceWidthButton>
+    </>
   );
 
   return (
