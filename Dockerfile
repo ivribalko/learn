@@ -29,12 +29,12 @@ RUN python -m venv .venv \
     && .venv/bin/python -m pip install --disable-pip-version-check --no-cache-dir -r backend/requirements.txt
 
 COPY backend/ backend/
+COPY docker-entrypoint.sh /usr/local/bin/learn-entrypoint
 COPY --from=frontend-build /build/frontend/dist/ frontend/dist/
 
 RUN mkdir courses \
+    && chmod +x /usr/local/bin/learn-entrypoint \
     && chown -R learn:learn /app
-
-USER learn
 
 VOLUME ["/app/courses"]
 EXPOSE 8000
@@ -42,5 +42,5 @@ EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=20s --retries=3 \
     CMD ["python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/api/health', timeout=3)"]
 
-ENTRYPOINT ["/bin/sh", "-c", "set -eu; if [ -f /app/courses/requirements.txt ]; then python -m pip install --disable-pip-version-check --no-cache-dir -r /app/courses/requirements.txt; fi; exec \"$@\"", "learn-entrypoint"]
+ENTRYPOINT ["learn-entrypoint"]
 CMD ["uvicorn", "backend.production:app", "--host", "0.0.0.0", "--port", "8000", "--workers", "1"]

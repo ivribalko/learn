@@ -78,7 +78,7 @@ Every push to `main` publishes a multi-platform production image to `ghcr.io/ivr
 
 GitHub creates the package as private on its first publication. Open the package settings after that first workflow run, change its visibility to **Public**, and rerun the workflow. Public GHCR packages can be pulled anonymously.
 
-The image does not contain authored courses or lesson toolchains. On the media server, clone the private course repository and mount that checkout at `/app/courses`. Course dependencies from the mounted `requirements.txt` are installed when the app container starts, while lesson toolchains remain in course-owned runner images.
+The image does not contain authored courses or lesson toolchains. On the media server, clone the private course repository and mount that checkout at `/app/courses`. At startup, the container creates the ignored course runtime directory with application ownership and installs dependencies from the mounted `requirements.txt`; lesson toolchains remain in course-owned runner images.
 
 Pull the published image:
 

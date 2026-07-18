@@ -66,6 +66,6 @@
 - `backend/production.py` serves static frontend assets and client-side routes from the same process and origin as `/api`.
 - The production command runs one uvicorn worker without file watching so the in-memory Help chat session remains coherent.
 - The ignored course checkout is excluded from the image and mounted read-write at `/app/courses`; lesson files and generated state remain in that volume.
-- The Docker entrypoint installs dependencies declared by the mounted course checkout before importing its registry and starting the service.
+- The Docker entrypoint starts as root, creates or repairs ownership of `/app/courses/var`, installs dependencies declared by the mounted checkout, and drops to the unprivileged application user before importing the registry and starting the service.
 - The production container receives the host Docker socket and its group access; runner containers inherit `/app/courses` from the app container and run as siblings on the host daemon rather than through a nested daemon.
 - `.github/workflows/container.yml` publishes latest and commit tags for Linux AMD64 and ARM64 to GitHub Container Registry on every push to `main`.
