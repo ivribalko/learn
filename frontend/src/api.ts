@@ -1,4 +1,4 @@
-import type { Course, CourseSummary } from "./courseTypes";
+import type { Course, CourseProgress, CourseSummary } from "./courseTypes";
 import { apiFetch as fetch } from "./preview/apiFetch";
 
 export type LessonFileResponse = {
@@ -92,6 +92,10 @@ export async function fetchCourses(): Promise<CourseSummary[]> {
 
 export async function fetchCourse(courseId: string): Promise<Course> {
   return parseJson<Course>(await fetch(`/api/courses/${courseId}`));
+}
+
+export async function fetchCourseProgress(courseId: string): Promise<CourseProgress> {
+  return parseJson<CourseProgress>(await fetch(`/api/courses/${courseId}/progress`));
 }
 
 export async function fetchLessonFile(courseId: string, lessonId: string): Promise<LessonFileResponse> {

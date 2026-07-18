@@ -26,6 +26,7 @@ import {
   fetchLessonFile,
   fetchLessonFileState,
   fetchLessonOutput,
+  fetchCourseProgress,
   openAssetInVSCode,
   openInVSCode,
   resetAsset,
@@ -44,7 +45,6 @@ import type { Course, CourseSummary, GlossaryEntry, Lesson } from "./courseTypes
 import { colorizeCode } from "./codeColorizer";
 import { usePageScrollLock } from "./pageScrollLock";
 import { getScrollFadeClass } from "./scrollFades";
-import { markLessonComplete, readCourseProgress, readProgress, restartLessonProgress, setActiveLesson } from "./storage";
 
 type Status = "idle" | "loading" | "running" | "error";
 type EditorPanelView = "code" | "asset";
@@ -58,16 +58,20 @@ const TOOLTIP_OPEN_EVENT = "learn-tooltip-open";
 
 /** Main app view that owns top-level routing and lesson progress. */
 export default function App() {
+  const location = useLocation();
   const [courses, setCourses] = useState<CourseSummary[]>([]);
   const [coursesLoaded, setCoursesLoaded] = useState(false);
   const [message, setMessage] = useState("");
 
   useEffect(() => {
+    if (location.pathname !== "/") return;
+    setCoursesLoaded(false);
+    setMessage("");
     void fetchCourses()
       .then(setCourses)
       .catch((error) => setMessage(error instanceof Error ? error.message : "Unable to load courses."))
       .finally(() => setCoursesLoaded(true));
-  }, []);
+  }, [location.pathname]);
 
   return (
     <Routes>
@@ -82,7 +86,6 @@ export default function App() {
 
 /** Course picker that uses the same navigation language as the lesson overview. */
 function CourseSelection({ courses, loaded, message }: { courses: CourseSummary[]; loaded: boolean; message: string }) {
-  const progress = readProgress();
   return (
     <main className="shell course-selection-shell">
       <section className="lesson-page course-selection-page">
@@ -93,11 +96,10 @@ function CourseSelection({ courses, loaded, message }: { courses: CourseSummary[
           {!loaded && !message ? <p>Loading courses…</p> : null}
           {loaded && courses.length === 0 && !message ? <p>No courses installed.</p> : null}
           {courses.map((course) => {
-            const completed = progress.courses[course.id]?.completedLessonIds.length ?? 0;
             return (
               <Link className="lesson-link course-link" key={course.id} to={`/courses/${course.id}`}>
                 <span className="course-link-copy">
-                  <span>{completed}/{course.lessonCount}</span>
+                  <span>{course.completedLessonCount}/{course.lessonCount}</span>
                   <strong>{course.title}</strong>
                 </span>
                 <ChevronRight size={18} />
@@ -111,7 +113,7 @@ function CourseSelection({ courses, loaded, message }: { courses: CourseSummary[
   );
 }
 
-/** Loads one course and resolves its active lesson route. */
+/** Loads one course and resolves its requested or next unfinished lesson route. */
 function CourseRoute({ chatOpen = false }: { chatOpen?: boolean }) {
   const { courseId = "", lessonRoute } = useParams();
   const location = useLocation();
@@ -127,7 +129,7 @@ function CourseRoute({ chatOpen = false }: { chatOpen?: boolean }) {
       .then((loadedCourse) => {
         if (!active) return;
         setCourse(loadedCourse);
-        setCompletedLessonIds(readCourseProgress(courseId, loadedCourse.lessons[0].id).completedLessonIds);
+        setCompletedLessonIds(loadedCourse.progress.completedLessonIds);
       })
       .catch((error) => {
         if (active) setMessage(error instanceof Error ? error.message : "Unable to load the course.");
@@ -138,10 +140,10 @@ function CourseRoute({ chatOpen = false }: { chatOpen?: boolean }) {
   if (message) return <Navigate to="/" replace />;
   if (!course) return <main className="shell"><section className="lesson-page"><p>Loading course…</p></section></main>;
 
-  const progress = readCourseProgress(course.id, course.lessons[0].id);
   const lesson = lessonRoute
     ? course.lessons.find((item) => item.route === lessonRoute)
-    : course.lessons.find((item) => item.id === progress.activeLessonId);
+    : course.lessons.find((item) => !course.progress.completedLessonIds.includes(item.id))
+      ?? course.lessons.at(-1);
 
   if (!lesson) {
     return <Navigate to={course.lessons[0].slug} replace />;
@@ -227,7 +229,6 @@ function LessonPage({
   const [hasSavedOutput, setHasSavedOutput] = useState(false);
   const [isNavOpen, setIsNavOpen] = useState(false);
   const [examAnsweredCount, setExamAnsweredCount] = useState(0);
-  const [examQuestionsComplete, setExamQuestionsComplete] = useState(false);
   const [examResetVersion, setExamResetVersion] = useState(0);
   const fileStateRef = useRef<LessonFileState | null>(null);
   const codePanelRef = useRef<HTMLElement | null>(null);
@@ -282,9 +283,7 @@ function LessonPage({
   }, [course.id, lesson]);
 
   useEffect(() => {
-    setActiveLesson(course.id, lesson.id);
     setExamAnsweredCount(0);
-    setExamQuestionsComplete(false);
     setMessage("");
     setAssetFile(null);
     setEditorPanelView("code");
@@ -430,10 +429,8 @@ function LessonPage({
       setRunResult(result);
       setHasSavedOutput(true);
       setStatus("idle");
-      if (result.success && result.checks.every((check) => check.passed) && (!lesson.exam || examQuestionsComplete)) {
-        const progress = markLessonComplete(course.id, lesson.id);
-        onComplete(progress.completedLessonIds);
-      }
+      const progress = await fetchCourseProgress(course.id);
+      onComplete(progress.completedLessonIds);
     } catch (error) {
       setStatus("error");
       setMessage(error instanceof Error ? error.message : "Unable to run lesson.");
@@ -455,10 +452,9 @@ function LessonPage({
       setHasSavedOutput(false);
       const nextFileState = await fetchLessonFileState(course.id, lesson.id);
       fileStateRef.current = nextFileState;
-      const progress = restartLessonProgress(course.id, lesson.id);
+      const progress = await fetchCourseProgress(course.id);
       onComplete(progress.completedLessonIds);
       setExamAnsweredCount(0);
-      setExamQuestionsComplete(false);
       setExamResetVersion((version) => version + 1);
       setStatus("idle");
     } catch (error) {
@@ -590,7 +586,6 @@ function LessonPage({
               key={`${lesson.id}-${examResetVersion}`}
               lessonId={lesson.id}
               onAnsweredCountChange={setExamAnsweredCount}
-              onCompletionChange={setExamQuestionsComplete}
               onError={setMessage}
             />
           ) : null}

@@ -7,7 +7,6 @@ type ExamQuestionsProps = {
   courseId: string;
   lessonId: string;
   onAnsweredCountChange: (count: number) => void;
-  onCompletionChange: (complete: boolean) => void;
   onError: (message: string) => void;
 };
 
@@ -16,7 +15,6 @@ export default function ExamQuestions({
   courseId,
   lessonId,
   onAnsweredCountChange,
-  onCompletionChange,
   onError
 }: ExamQuestionsProps) {
   const [exam, setExam] = useState<ExamState | null>(null);
@@ -29,7 +27,6 @@ export default function ExamQuestions({
         if (active) {
           setExam(state);
           onAnsweredCountChange(state.answeredCount);
-          onCompletionChange(state.correctCount === state.questions.length);
         }
       })
       .catch((error) => {
@@ -40,7 +37,7 @@ export default function ExamQuestions({
     return () => {
       active = false;
     };
-  }, [courseId, lessonId, onAnsweredCountChange, onCompletionChange, onError]);
+  }, [courseId, lessonId, onAnsweredCountChange, onError]);
 
   async function selectAnswer(questionId: string, optionId: string) {
     if (!exam || submittingQuestionId) {
@@ -55,7 +52,6 @@ export default function ExamQuestions({
       const nextExam = summarizeExam(exam, questions);
       setExam(nextExam);
       onAnsweredCountChange(nextExam.answeredCount);
-      onCompletionChange(nextExam.correctCount === nextExam.questions.length);
     } catch (error) {
       onError(error instanceof Error ? error.message : "Unable to save the exam answer.");
     } finally {

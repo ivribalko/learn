@@ -6,7 +6,7 @@
 - `frontend/src/preview/` contains the static demo course, browser persistence, simulated runner, and demo chat transport.
 - `backend/` contains the FastAPI service, normalized course models, course loader, persistence services, and reusable course builder.
 - `courses/` is the optional ignored course checkout and owns authored content, runner dispatch, and lesson-runtime images.
-- `courses/<course-package>/var/` contains that course's versioned editable lessons, generated assets, run output, and exam answers.
+- `courses/<course-package>/var/` contains that course's versioned progress, editable lessons, generated assets, run output, and exam answers.
 - `Dockerfile.sync` and `learn-sync.sh` build the dedicated course checkout and push worker image.
 - `compose.yaml` runs the published site and sync images without a local build context.
 - `var/` contains ignored machine-local configuration for the shared application.
@@ -24,7 +24,9 @@
 - `/` renders course selection and reports when no courses are installed.
 - `/courses/:courseId/lessons/:lessonRoute` renders the shared lesson page.
 - `/courses/:courseId/lessons/:lessonRoute/chat` opens that lesson's help conversation as a browser-history entry.
-- Selecting a course resumes its browser-stored active lesson, and progress is namespaced by course.
+- Selecting a course opens its first unfinished lesson, or its final lesson when the course is complete.
+- In the API-backed app, course summaries and lesson completion indicators are derived from the same repository-backed progress file on every device; the browser does not own progress state.
+- Each `var/progress.json` stores only ordered completed lesson IDs; lesson navigation is not persisted or synchronized.
 - Unknown courses return to course selection; unknown lessons open the selected course's first lesson.
 - The frontend dispatches syntax coloring by lesson language and renders course-provided asset presentation metadata.
 
@@ -32,7 +34,8 @@
 
 - File, output, exam, run, reset, open, and asset operations are scoped below `/api/courses/{courseId}/lessons/{lessonId}/`.
 - Run creates missing source and asset files, invokes the checkout-owned runner, evaluates normalized output checks, and persists the result.
-- After the runner finishes and its result is persisted, the backend queues a unique course-repository synchronization request when the Compose trigger volume is configured.
+- Exam answers, restarts, and lesson runs queue course-repository synchronization when the Compose trigger volume is configured.
+- A successful run marks a lesson complete only after all output checks pass and every optional exam answer is correct.
 - Restart removes source, output, exam answers, and completion state.
 - Lessons execute in Docker images defined by the course checkout; runner tags derive from checkout-owned image and dependency inputs, and each image builds lazily on its first run.
 - Runner containers have no network and mount only course runtime state when the backend runs directly on the host.
@@ -73,5 +76,5 @@
 - The ignored course checkout is excluded from the image and mounted read-write at `/app/courses`; lesson files and generated state remain in that volume.
 - The Docker entrypoint starts as root, installs dependencies declared by the mounted checkout, creates or repairs ownership of each registered course's package-local `var/` directory, and drops to the unprivileged application user before starting the service.
 - The production container receives `/data/docker.sock` at `/var/run/docker.sock` with group `0`. Runner containers inherit `/app/courses` from the app container and run as siblings on that daemon.
-- The Compose `learn-sync` service synchronizes the shared checkout with `main` at startup, then commits and pushes all nonignored course changes after each queued lesson run.
+- The Compose `learn-sync` service synchronizes the shared checkout with `main` at startup, then commits and pushes all nonignored course changes after each queued progress mutation or lesson run using `updated state <course-id> <lesson-id>` commit messages.
 - `.github/workflows/container.yml` publishes latest and commit tags for both images on Linux AMD64 and ARM64 to GitHub Container Registry on every push to `main`.

@@ -20,6 +20,12 @@ def lessons_dir(course: CourseDefinition) -> Path:
     return course_dir(course) / "lessons"
 
 
+def course_progress_path(course: CourseDefinition) -> Path:
+    """Returns the versioned learner-progress path for one course."""
+
+    return course_dir(course) / "progress.json"
+
+
 def lesson_path(course: CourseDefinition, lesson: LessonDefinition) -> Path:
     """Returns the editable source path for one lesson."""
 

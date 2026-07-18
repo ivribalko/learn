@@ -30,6 +30,11 @@ from backend.openai_chat import (
     OpenAIChatSettingsResponse,
     chat_stream_event,
 )
+from backend.progress_service import (
+    complete_lesson,
+    get_course_progress,
+    restart_lesson,
+)
 
 ASSET_PREVIEW_LINE_LIMIT = 120
 
@@ -132,14 +137,18 @@ def health() -> dict[str, str]:
 def read_courses() -> list[dict[str, Any]]:
     """Returns summaries for every registered course."""
 
-    return [
-        {
-            "id": course.course_id,
-            "title": course.title,
-            "lessonCount": len(course.lessons),
-        }
-        for course in COURSES.values()
-    ]
+    summaries = []
+    for course in COURSES.values():
+        progress = get_course_progress(course)
+        summaries.append(
+            {
+                "id": course.course_id,
+                "title": course.title,
+                "lessonCount": len(course.lessons),
+                "completedLessonCount": len(progress["completedLessonIds"]),
+            }
+        )
+    return summaries
 
 
 @app.get("/api/courses/{course_id}")
@@ -147,6 +156,13 @@ def read_course(course_id: str) -> dict[str, Any]:
     """Returns the complete public presentation for one course."""
 
     return _serialize_course(_resolve_course(course_id))
+
+
+@app.get("/api/courses/{course_id}/progress")
+def read_course_progress(course_id: str) -> dict[str, Any]:
+    """Returns course-repository-backed learner progress."""
+
+    return get_course_progress(_resolve_course(course_id))
 
 
 @app.delete("/api/courses/{course_id}/openai-chat/session", status_code=204)
@@ -222,7 +238,9 @@ def answer_exam(course_id: str, lesson_id: str, request: ExamAnswerRequest) -> d
 
     course, lesson = _resolve_lesson(course_id, lesson_id)
     try:
-        return answer_exam_question(course, lesson, request.questionId, request.optionId)
+        answer = answer_exam_question(course, lesson, request.questionId, request.optionId)
+        request_course_sync(course.course_id, lesson.lesson_id)
+        return answer
     except KeyError as error:
         raise HTTPException(status_code=404, detail=str(error)) from error
     except ValueError as error:
@@ -388,6 +406,8 @@ def reset_lesson_file(course_id: str, lesson_id: str) -> LessonFileResponse:
             target.unlink()
     get_runner(lesson.runner_id).reset(course, lesson)
     reset_exam_answers(course, lesson)
+    restart_lesson(course, lesson.lesson_id)
+    request_course_sync(course.course_id, lesson.lesson_id)
     return LessonFileResponse(
         content=_normalize_lesson_content(lesson.template),
         exists=False,
@@ -422,7 +442,9 @@ def run_lesson_file(course_id: str, lesson_id: str) -> RunFileResponse:
     output_path = lesson_output_path(course, lesson)
     output_path.parent.mkdir(parents=True, exist_ok=True)
     output_path.write_text(result.model_dump_json(indent=2))
-    request_course_sync()
+    if _lesson_is_complete(course, lesson, result):
+        complete_lesson(course, lesson.lesson_id)
+    request_course_sync(course.course_id, lesson.lesson_id)
     return result
 
 
@@ -456,6 +478,21 @@ def _ensure_asset(course: CourseDefinition, lesson: LessonDefinition) -> Path:
     return path
 
 
+def _lesson_is_complete(
+    course: CourseDefinition,
+    lesson: LessonDefinition,
+    result: RunFileResponse,
+) -> bool:
+    """Returns whether run checks and optional exam answers complete a lesson."""
+
+    if not result.success or not all(check.passed for check in result.checks):
+        return False
+    if lesson.exam is None:
+        return True
+    exam_state = get_exam_state(course, lesson)
+    return exam_state["correctCount"] == len(lesson.exam.questions)
+
+
 def _open_in_vscode(path: Path) -> None:
     code_command = _find_code_command()
     if code_command is None:
@@ -467,6 +504,7 @@ def _serialize_course(course: CourseDefinition) -> dict[str, Any]:
     return {
         "id": course.course_id,
         "title": course.title,
+        "progress": get_course_progress(course),
         "asset": {
             "label": course.asset_presentation.label,
             "shortLabel": course.asset_presentation.short_label,

@@ -1,7 +1,12 @@
 export type CourseSummary = {
+  completedLessonCount: number;
   id: string;
   title: string;
   lessonCount: number;
+};
+
+export type CourseProgress = {
+  completedLessonIds: string[];
 };
 
 export type AssetPresentation = {
@@ -45,4 +50,5 @@ export type Course = {
   chapters: CourseChapter[];
   lessons: Lesson[];
   glossary: GlossaryEntry[];
+  progress: CourseProgress;
 };

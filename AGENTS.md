@@ -98,7 +98,7 @@ docker run --detach --name learn-site --restart unless-stopped --publish 8000:80
 
 The stack is self-contained and requires no repository checkout or local image build.
 
-Every lesson run queues a unique request through the shared `learn_courses_sync` volume. The `learn-sync` service stages all nonignored checkout changes, creates a lowercase past-tense `updated lesson state` commit when needed, rebases onto the latest `main`, and pushes directly to `main`. Git failures remain queued for retry.
+Every exam answer, restart, and lesson run queues a unique request through the shared `learn_courses_sync` volume. The `learn-sync` service stages all nonignored checkout changes, creates a lowercase past-tense `updated state <course-id> <lesson-id>` commit when needed, rebases onto the latest `main`, and pushes directly to `main`. Git failures remain queued for retry.
 
 Configure the Compose environment without committing the values:
 

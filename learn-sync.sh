@@ -7,7 +7,7 @@ SYNC_DIR=/sync
 REQUESTS_DIR=$SYNC_DIR/requests
 READY_FILE=$SYNC_DIR/ready
 POLL_SECONDS=${COURSES_SYNC_POLL_SECONDS:-2}
-COMMIT_MESSAGE=${COURSES_COMMIT_MESSAGE:-updated lesson state}
+RECOVERY_COMMIT_MESSAGE=${COURSES_RECOVERY_COMMIT_MESSAGE:-updated state recovered checkout}
 
 
 configure_git() {
@@ -23,9 +23,10 @@ configure_git() {
 
 
 sync_courses() {
+    commit_message=$1
     git -C "$COURSES_DIR" add --all || return 1
     if ! git -C "$COURSES_DIR" diff --cached --quiet; then
-        git -C "$COURSES_DIR" commit --message "$COMMIT_MESSAGE" || return 1
+        git -C "$COURSES_DIR" commit --message "$commit_message" || return 1
     fi
 
     git -C "$COURSES_DIR" fetch --prune origin main || return 1
@@ -58,7 +59,7 @@ prepare_checkout() {
             "$COURSES_DIR"
     fi
 
-    sync_courses
+    sync_courses "$RECOVERY_COMMIT_MESSAGE"
 }
 
 
@@ -82,7 +83,14 @@ touch "$READY_FILE"
 
 while :; do
     if request=$(next_request); then
-        if sync_courses; then
+        course_id=$(sed -n '1p' "$request")
+        lesson_id=$(sed -n '2p' "$request")
+        if [ -z "$course_id" ] || [ -z "$lesson_id" ]; then
+            commit_message=$RECOVERY_COMMIT_MESSAGE
+        else
+            commit_message="updated state $course_id $lesson_id"
+        fi
+        if sync_courses "$commit_message"; then
             rm -f "$request"
         fi
     fi

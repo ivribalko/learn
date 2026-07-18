@@ -7,13 +7,14 @@ import type {
   LessonOutputResponse,
   RunResult
 } from "../api";
-import type { Course, CourseSummary } from "../courseTypes";
+import type { Course, CourseProgress, CourseSummary } from "../courseTypes";
 
 const courseId = "python-demo";
 const lessonId = "1.1";
 const fileStorageKey = "learn-preview-python-file-v1";
 const fileModifiedStorageKey = "learn-preview-python-file-modified-v1";
 const outputStorageKey = "learn-preview-python-output-v1";
+const progressStorageKey = "learn-preview-progress-v1";
 const tutorResponse = "This lesson introduces a variable, an f-string, and `print()`. Change the value assigned to `name`, then select **Run** to produce a personalized greeting.";
 let chatTurn = 0;
 
@@ -66,10 +67,12 @@ const course: Course = {
       label: "F-string",
       definition: "A Python string literal that evaluates expressions written inside braces."
     }
-  ]
+  ],
+  progress: { completedLessonIds: [] }
 };
 
 const courseSummary: CourseSummary = {
+  completedLessonCount: 0,
   id: course.id,
   title: course.title,
   lessonCount: course.lessons.length
@@ -92,9 +95,15 @@ async function previewFetch(input: RequestInfo | URL, init?: RequestInit): Promi
   const method = (init?.method ?? request?.method ?? "GET").toUpperCase();
 
   try {
-    if (url.pathname === "/api/courses" && method === "GET") return jsonResponse([courseSummary]);
-    if (url.pathname === `/api/courses/${courseId}` && method === "GET") return jsonResponse(course);
-
+    if (url.pathname === "/api/courses" && method === "GET") {
+      return jsonResponse([{ ...courseSummary, completedLessonCount: readProgress().completedLessonIds.length }]);
+    }
+    if (url.pathname === `/api/courses/${courseId}` && method === "GET") {
+      return jsonResponse({ ...course, progress: readProgress() });
+    }
+    if (url.pathname === `/api/courses/${courseId}/progress` && method === "GET") {
+      return jsonResponse(readProgress());
+    }
     const lessonMatch = url.pathname.match(/^\/api\/courses\/([^/]+)\/lessons\/([^/]+)\/(.+)$/);
     if (lessonMatch) {
       const [, requestedCourseId, requestedLessonId, action] = lessonMatch;
@@ -191,6 +200,7 @@ function resetLessonFile(): LessonFileResponse {
   window.localStorage.removeItem(fileStorageKey);
   window.localStorage.setItem(fileModifiedStorageKey, String(Date.now()));
   window.localStorage.removeItem(outputStorageKey);
+  writeProgress({ completedLessonIds: [] });
   return readLessonFile();
 }
 
@@ -211,7 +221,26 @@ function runLessonFile(): RunResult {
     ]
   };
   window.localStorage.setItem(outputStorageKey, JSON.stringify(result));
+  if (success) writeProgress({ completedLessonIds: [lessonId] });
   return result;
+}
+
+function readProgress(): CourseProgress {
+  const stored = window.localStorage.getItem(progressStorageKey);
+  if (!stored) return { completedLessonIds: [] };
+  try {
+    const value = JSON.parse(stored) as CourseProgress;
+    return {
+      completedLessonIds: value.completedLessonIds?.includes(lessonId) ? [lessonId] : []
+    };
+  } catch {
+    return { completedLessonIds: [] };
+  }
+}
+
+function writeProgress(progress: CourseProgress): CourseProgress {
+  window.localStorage.setItem(progressStorageKey, JSON.stringify(progress));
+  return progress;
 }
 
 function readAssetState(): AssetState {
