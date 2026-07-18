@@ -7,7 +7,7 @@ SYNC_DIR=/sync
 REQUESTS_DIR=$SYNC_DIR/requests
 READY_FILE=$SYNC_DIR/ready
 POLL_SECONDS=${COURSES_SYNC_POLL_SECONDS:-2}
-RECOVERY_COMMIT_MESSAGE=${COURSES_RECOVERY_COMMIT_MESSAGE:-updated state recovered checkout}
+RECOVERY_COMMIT_MESSAGE=${COURSES_RECOVERY_COMMIT_MESSAGE:-saved recovered checkout}
 
 
 configure_git() {
@@ -88,7 +88,7 @@ while :; do
         if [ -z "$course_id" ] || [ -z "$lesson_id" ]; then
             commit_message=$RECOVERY_COMMIT_MESSAGE
         else
-            commit_message="updated state $course_id $lesson_id"
+            commit_message="saved $course_id $lesson_id"
         fi
         if sync_courses "$commit_message"; then
             rm -f "$request"

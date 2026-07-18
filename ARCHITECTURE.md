@@ -83,5 +83,5 @@
 - The ignored course checkout is excluded from the image and mounted read-write at `/app/courses`; lesson files and generated state remain in that volume.
 - The Docker entrypoint starts as root, installs dependencies declared by the mounted checkout, creates or repairs ownership of each registered course's package-local `var/` directory, and drops to the unprivileged application user before starting the service.
 - The production container receives `/data/docker.sock` at `/var/run/docker.sock` with group `0`. Runner containers inherit `/app/courses` from the app container and run as siblings on that daemon.
-- The Compose `learn-sync` service synchronizes the shared checkout with `main` at startup, then commits and pushes all nonignored course changes after each queued progress mutation or lesson run using `updated state <course-id> <lesson-id>` commit messages.
+- The Compose `learn-sync` service synchronizes the shared checkout with `main` at startup, then commits and pushes all nonignored course changes after each queued progress mutation or lesson run using `saved <course-id> <lesson-id>` commit messages.
 - `.github/workflows/container.yml` publishes latest and commit tags for both images on Linux AMD64 and ARM64 to GitHub Container Registry on every push to `main`.
