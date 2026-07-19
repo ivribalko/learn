@@ -229,8 +229,10 @@ function LessonPage({
   const [hasLessonFile, setHasLessonFile] = useState(false);
   const [hasSavedOutput, setHasSavedOutput] = useState(false);
   const [isNavOpen, setIsNavOpen] = useState(false);
+  const [isPageScrollable, setIsPageScrollable] = useState(false);
   const [examAnsweredCount, setExamAnsweredCount] = useState(0);
   const [examResetVersion, setExamResetVersion] = useState(0);
+  const bottomNavigationRef = useRef<HTMLElement | null>(null);
   const fileStateRef = useRef<LessonFileState | null>(null);
   const codePanelRef = useRef<HTMLElement | null>(null);
   const editorRef = useRef<HTMLTextAreaElement | null>(null);
@@ -252,6 +254,10 @@ function LessonPage({
   const codeEditorRows = countSourceLines(displayedFileContent);
 
   useLayoutEffect(() => {
+    window.scrollTo({ top: 0 });
+  }, [lesson.id]);
+
+  useLayoutEffect(() => {
     const codePanel = codePanelRef.current;
 
     if (!codePanel) {
@@ -266,6 +272,30 @@ function LessonPage({
     window.addEventListener("orientationchange", recordPanelOffset);
 
     return () => window.removeEventListener("orientationchange", recordPanelOffset);
+  }, [lesson.id]);
+
+  useLayoutEffect(() => {
+    let frame = 0;
+    const updatePageScrollable = () => {
+      window.cancelAnimationFrame(frame);
+      frame = window.requestAnimationFrame(() => {
+        const bottomNavigationHeight = bottomNavigationRef.current?.offsetHeight ?? 0;
+        const contentHeight = document.documentElement.scrollHeight - bottomNavigationHeight;
+        setIsPageScrollable(contentHeight > window.innerHeight + 1);
+      });
+    };
+
+    const observer = new ResizeObserver(updatePageScrollable);
+    observer.observe(document.documentElement);
+    observer.observe(document.body);
+    window.addEventListener("resize", updatePageScrollable);
+    updatePageScrollable();
+
+    return () => {
+      window.cancelAnimationFrame(frame);
+      observer.disconnect();
+      window.removeEventListener("resize", updatePageScrollable);
+    };
   }, [lesson.id]);
 
   const reloadLessonFile = useCallback(async () => {
@@ -689,6 +719,23 @@ function LessonPage({
             </div>
           </section>
         </section>
+        {isPageScrollable ? (
+          <footer className="lesson-bottom-navigation" ref={bottomNavigationRef}>
+            {previousLesson ? (
+              <LessonIconAction className="lesson-bottom-action lesson-bottom-previous" to={previousLesson.slug}>
+                <ChevronLeft size={18} />
+              </LessonIconAction>
+            ) : null}
+            <LessonIconAction className="lesson-bottom-action lesson-bottom-top" onClick={() => window.scrollTo({ top: 0 })}>
+              <ChevronUp size={18} />
+            </LessonIconAction>
+            {nextLesson ? (
+              <LessonIconAction className="lesson-bottom-action lesson-bottom-next" to={nextLesson.slug}>
+                <ChevronRight size={18} />
+              </LessonIconAction>
+            ) : null}
+          </footer>
+        ) : null}
         {message ? (
           <div className="error-toast">
             {message}

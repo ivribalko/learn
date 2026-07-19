@@ -332,6 +332,31 @@ a {
   padding: 21px 0 0;
 }
 
+.lesson-bottom-navigation {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  padding-top: var(--lesson-nav-spacing);
+}
+
+.lesson-bottom-action,
+.lesson-bottom-action:hover:not(:disabled) {
+  background: transparent;
+}
+
+.lesson-bottom-previous {
+  grid-column: 1;
+  justify-self: start;
+}
+
+.lesson-bottom-top {
+  grid-column: 2;
+}
+
+.lesson-bottom-next {
+  grid-column: 3;
+  justify-self: end;
+}
+
 .concept-panel h2,
 .workspace-content-grid h2,
 .lesson-prose h1,
