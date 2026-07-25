@@ -1,0 +1,4 @@
+interface:
+  display_name: "Create Researched Course"
+  short_description: "Research and author courses chapter by chapter"
+  default_prompt: "Use $create-researched-course to research my topic, propose a chapter and lesson list for approval, then author one chapter at a time."
