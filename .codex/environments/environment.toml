@@ -1,0 +1,67 @@
+version = 1
+name = "Learn"
+
+[setup]
+script = """
+set -e
+
+if ! .venv/bin/python --version >/dev/null 2>&1; then
+  python3 -m venv --clear .venv
+fi
+
+.venv/bin/python -m pip install -r backend/requirements.txt
+
+if [ -f courses/requirements.txt ]; then
+  .venv/bin/python -m pip install -r courses/requirements.txt
+fi
+
+npm install --prefix frontend
+"""
+
+[[actions]]
+name = "Run"
+icon = "run"
+command = """
+/bin/sh <<'LEARN_RUN'
+lock_file="${TMPDIR:-/tmp}/learn-dev.lock"
+app_url="http://127.0.0.1:5173"
+
+while ! ln -s "$$" "$lock_file" 2>/dev/null; do
+  owner_pid="$(readlink "$lock_file" 2>/dev/null || true)"
+
+  if [ -n "$owner_pid" ] && kill -0 "$owner_pid" 2>/dev/null; then
+    echo "Learn is already running at $app_url"
+    exit 1
+  fi
+
+  rm -f "$lock_file"
+done
+
+backend_pid=""
+frontend_pid=""
+
+cleanup() {
+  if [ -n "$backend_pid" ]; then
+    kill "$backend_pid" 2>/dev/null || true
+  fi
+
+  if [ -n "$frontend_pid" ]; then
+    kill "$frontend_pid" 2>/dev/null || true
+  fi
+
+  if [ "$(readlink "$lock_file" 2>/dev/null || true)" = "$$" ]; then
+    rm -f "$lock_file"
+  fi
+}
+
+trap cleanup EXIT INT TERM
+
+npm run backend &
+backend_pid="$!"
+
+npm --prefix frontend run dev -- --strictPort &
+frontend_pid="$!"
+
+wait "$backend_pid" "$frontend_pid"
+LEARN_RUN
+"""
