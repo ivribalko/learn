@@ -82,7 +82,9 @@
 - `backend/production.py` serves static frontend assets and client-side routes from the same process and origin as `/api`.
 - The production command runs one uvicorn worker without file watching so the in-memory Help chat session remains coherent.
 - The ignored course checkout is excluded from the image and mounted read-write at `/app/courses`; lesson files and generated state remain in that volume.
-- The Docker entrypoint starts as root, installs dependencies declared by the mounted checkout, creates or repairs ownership of each registered course's package-local `var/` directory, and drops to the unprivileged application user before starting the service.
+- The Docker entrypoint starts as root, installs dependencies declared by the mounted checkout into a persistent hash-validated package volume, creates or repairs ownership of each registered course's package-local `var/` directory, and drops to the unprivileged application user before starting the service.
+- Replacing `learn-site` reuses installed course packages while its requirements and Python ABI remain unchanged; the package volume also retains downloaded distributions for faster dependency changes.
+- The container readiness probe uses the lightweight `/api/live` route, while `/api/health` retains the Docker runner capability diagnostics.
 - The production container receives `/data/docker.sock` at `/var/run/docker.sock` with group `0`. Runner containers inherit `/app/courses` from the app container and run as siblings on that daemon.
 - The Compose `learn-sync` service synchronizes the shared checkout with `main` at startup, then commits and pushes all nonignored course changes after each queued progress mutation or lesson run using `saved <course-id> <lesson-id>` commit messages.
 - `.github/workflows/container.yml` publishes latest and commit tags for both images on Linux AMD64 and ARM64 to GitHub Container Registry on every push to `main`.

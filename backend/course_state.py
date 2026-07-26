@@ -37,10 +37,18 @@ def _contained_runtime_dir(runtime_dir: Path, courses_root: Path) -> Path:
 def _set_tree_ownership(path: Path, uid: int, gid: int) -> None:
     """Assigns ownership without following links outside runtime state."""
 
-    os.chown(path, uid, gid, follow_symlinks=False)
+    _set_ownership(path, uid, gid)
     for root, directories, files in os.walk(path, followlinks=False):
         for name in (*directories, *files):
-            os.chown(Path(root) / name, uid, gid, follow_symlinks=False)
+            _set_ownership(Path(root) / name, uid, gid)
+
+
+def _set_ownership(path: Path, uid: int, gid: int) -> None:
+    """Changes ownership only when the current identifiers differ."""
+
+    current = path.stat(follow_symlinks=False)
+    if current.st_uid != uid or current.st_gid != gid:
+        os.chown(path, uid, gid, follow_symlinks=False)
 
 
 if __name__ == "__main__":

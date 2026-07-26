@@ -11,10 +11,11 @@ services:
 
     healthcheck:
       test: ["CMD-SHELL", "test -f /sync/ready"]
-      interval: 5s
+      interval: 30s
       timeout: 3s
       retries: 12
       start_period: 10s
+      start_interval: 1s
 
     volumes:
       - learn_courses:/courses
@@ -43,9 +44,13 @@ services:
     volumes:
       - /data/docker.sock:/var/run/docker.sock
       - learn_courses:/app/courses
+      - learn_courses_requirements:/opt/courses-requirements
       - learn_courses_sync:/app/course-sync
 
 volumes:
+  learn_courses_requirements:
+    name: learn_courses_requirements
+
   learn_courses:
     name: learn_courses
 

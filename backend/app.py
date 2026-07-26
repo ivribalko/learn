@@ -127,6 +127,13 @@ OPENAI_CHAT_SESSIONS = OpenAIChatSessionManager()
 app.router.add_event_handler("shutdown", OPENAI_CHAT_SESSIONS.shutdown)
 
 
+@app.get("/api/live")
+def live() -> dict[str, str]:
+    """Reports that the web application is ready to serve requests."""
+
+    return {"status": "ok"}
+
+
 @app.get("/api/health")
 def health() -> dict[str, str]:
     """Reports available lesson-runner capabilities."""

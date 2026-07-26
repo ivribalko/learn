@@ -78,21 +78,7 @@ Every push to `main` publishes multi-platform `ghcr.io/ivribalko/learn-site` and
 
 GitHub creates each package as private on its first publication. Open both package settings after the first workflow run, change their visibility to **Public**, and rerun the workflow. Public GHCR packages can be pulled anonymously.
 
-The site image does not contain authored courses or lesson toolchains. A standalone deployment must provide a course checkout at `/app/courses`. At startup, the container creates the course runtime directories with application ownership and installs dependencies from the mounted `requirements.txt`; lesson toolchains remain in course-owned runner images.
-
-### Standalone Site Container
-
-Pull the published image:
-
-```sh
-docker pull ghcr.io/ivribalko/learn-site:latest
-```
-
-Run it with the course checkout mounted read-write so lesson state can persist under each `courses/<course-package>/var/` directory. Mount the host Docker socket and add its group so the app can build and start sibling runner containers:
-
-```sh
-docker run --detach --name learn-site --restart unless-stopped --publish 8000:8000 --env OPENAI_API_KEY="<your-openai-api-key>" --group-add "$(stat --format='%g' /var/run/docker.sock)" --volume /var/run/docker.sock:/var/run/docker.sock --volume "<course-checkout>:/app/courses" ghcr.io/ivribalko/learn-site:latest
-```
+The site image does not contain authored courses or lesson toolchains. The Docker Compose stack provides the course checkout at `/app/courses`. At startup, the container creates the course runtime directories with application ownership and installs dependencies from the mounted `requirements.txt`; lesson toolchains remain in course-owned runner images.
 
 ### Docker Compose Stack
 
@@ -121,6 +107,8 @@ Service boundaries, runtime state, request flows, and the Docker runner lifecycl
 ## Repository Instructions
 
 - This app is a deployed course runner intended for trusted environments; repository-local execution is for development only, and remote-user security features are out of scope.
+- Start production only through the complete Docker Compose stack; do not start, pull, or replace individual production containers.
+- Keep shared infrastructure identifiers implementation-agnostic; do not expose implementation details such as a course language.
 - Do not add automated tests.
 - For ordinary frontend source or CSS edits, rely on Vite hot reload without building or restarting; build or restart only when explicitly requested, for delivery verification, or when startup/build-time behavior changes.
 - Run the backend with file watching using `.venv/bin/python -m uvicorn backend.app:app --host 127.0.0.1 --port 8000 --reload`; after backend logic changes, rely on reload instead of manually restarting it.
